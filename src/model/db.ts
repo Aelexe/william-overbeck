@@ -22,6 +22,21 @@ export function initialiseDatabase(config: DbConfig = { filename: "db.sqlite" })
 		// Determine project root directory.
 		const dbPath = path.join(process.cwd(), config.filename);
 
+		// Create backup if database file already exists
+		if (fs.existsSync(dbPath)) {
+			const backupDir = path.join(process.cwd(), "backups");
+			fs.ensureDirSync(backupDir);
+
+			const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
+			const backupPath = path.join(
+				backupDir,
+				`${path.basename(config.filename, path.extname(config.filename))}_${timestamp}${path.extname(config.filename)}`
+			);
+
+			fs.copyFileSync(dbPath, backupPath);
+			console.log(`Database backed up to ${backupPath}`);
+		}
+
 		// Ensure the directory exists.
 		fs.ensureDirSync(path.dirname(dbPath));
 

@@ -1,7 +1,16 @@
 import { DateTime } from "luxon";
 import { getDb } from "./db";
 
-export default class Submission {
+interface Submission {
+	document_id: string;
+	document_hash: string | null;
+	submitted_timestamp: DateTime;
+	submitter: string;
+	content: string | null;
+	is_downloaded: boolean;
+}
+
+export default class SubmissionModel {
 	/**
 	 * Inserts a new submission into the database
 	 * @param documentId Unique identifier of the document
@@ -100,7 +109,7 @@ export default class Submission {
 	 * Updates a submission record to mark it as downloaded
 	 * @param documentId Document identifier of the submission to update
 	 */
-	static flagSubmissionAsDownloaded(documentId: string): void {
+	public static flagSubmissionAsDownloaded(documentId: string): void {
 		const database = getDb();
 		const stmt = database.prepare(`
             UPDATE submission
@@ -109,6 +118,17 @@ export default class Submission {
         `);
 
 		stmt.run(documentId);
+	}
+
+	public static selectUnparsedSubmissions(): Submission[] {
+		const database = getDb();
+		const stmt = database.prepare(`
+			SELECT *
+			FROM submission
+			WHERE content IS NULL AND is_downloaded = TRUE
+		`);
+
+		return stmt.all() as Submission[];
 	}
 
 	/**

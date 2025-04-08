@@ -1,6 +1,8 @@
-import { Browser, firefox, Page } from "playwright";
+import { Browser, BrowserContext, firefox, Page } from "playwright";
 
 let browser: Browser | null = null;
+let context: BrowserContext | null = null;
+const pages: Page[] = [];
 
 export async function getBrowser() {
 	if (browser !== null) {
@@ -13,13 +15,26 @@ export async function getBrowser() {
 	});
 
 	// Create a context and page
-	const context = await browser.newContext({
+	context = await browser.newContext({
 		viewport: null, // Use default viewport size
 		ignoreHTTPSErrors: true,
 	});
+
+	return browser;
+}
+
+export async function getPage(): Promise<Page> {
+	if (pages.length > 0) {
+		return pages.pop()!;
+	}
+
+	if (!context) {
+		throw new Error("Browser context is not initialized. Call getBrowser() first.");
+	}
+
 	const page = await context.newPage();
 
-	// Inject CSS to make background dark grey
+	// Inject CSS to make background dark grey.
 	await page.addStyleTag({
 		content: `
 			  body {
@@ -32,10 +47,14 @@ export async function getBrowser() {
 		  `,
 	});
 
-	// Set default navigation timeout
+	// Set default navigation timeout.
 	page.setDefaultTimeout(0);
 
-	return browser;
+	return page;
+}
+
+export function returnPage(page: Page): void {
+	pages.push(page);
 }
 
 /**

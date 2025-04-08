@@ -1,15 +1,15 @@
 {
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "esModuleInterop": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+	"compilerOptions": {
+		"target": "es6",
+		"module": "commonjs",
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"jsx": "react"
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules"]
 }
