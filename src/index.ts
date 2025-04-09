@@ -32,7 +32,6 @@ program
 	.command("scrape")
 	.description("Scrape bills from the source")
 	.action(async () => {
-		console.log("Starting bill scraping...");
 		await scrapeBills();
 		process.exit(0);
 	});
@@ -40,8 +39,10 @@ program
 program
 	.command("parse")
 	.description("Parse all unparsed submissions")
-	.action(async () => {
-		await parseSubmissions();
+	.option("-l, --limit <number>", "Limit the number of submissions to parse", parseInt)
+	.option("-r, --reset", "Reparses all submissions")
+	.action(async (options) => {
+		await parseSubmissions(options);
 		process.exit(0);
 	});
 

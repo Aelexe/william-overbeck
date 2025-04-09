@@ -1,29 +1,48 @@
 import chalk from "chalk";
 import fs from "fs-extra";
 import path from "path";
+import PDFModel from "../model/pdf-model";
 import SubmissionModel from "../model/submission";
+import { SubmissionLinkModel } from "../model/submission-link-model";
 import { PDF_DIR } from "../paths";
-import { extractTextFromPdf } from "./pdf";
+import { parsePdf } from "./pdf";
 
-async () => {
-	// Get all PDFs in the pdf folder.
-	const pdfFiles = await fs.readdir(PDF_DIR);
-	console.log("PDF files in the directory:", pdfFiles);
+export default async function parseSubmissions(options?: { limit?: number; reset?: boolean }) {
+	console.log("Parsing submissions.");
 
-	// Then parse them.
-	for (const pdfFile of pdfFiles) {
-		const pdfPath = path.join(PDF_DIR, pdfFile);
-		const text = await extractTextFromPdf(pdfPath);
-		console.log(`Extracted text from ${pdfFile}:\n`, text);
-		// Write text to file.
-		const textFilePath = path.join(PDF_DIR, `${path.parse(pdfFile).name}.txt`);
-
-		await fs.writeFile(textFilePath, text, "utf-8");
-		console.log(`Extracted text saved to ${textFilePath}`);
+	if (options?.reset) {
+		console.log("Resetting all submissions.");
+		SubmissionModel.clearAllSubmissionContent();
 	}
-};
 
-export default async function parseSubmissions() {
+	linkSupplementarySubmissions();
+	await parsePdfs(options);
+}
+
+function linkSupplementarySubmissions() {
+	const supplementarySubmissions = SubmissionModel.findUnlinkedSupplementarySubmissions();
+
+	const submissionMap = new Map<string, number>();
+
+	for (const submission of supplementarySubmissions) {
+		const submitter = submission.submitter.replace(/Supp [0-9]+$/, "").trim();
+		const order = parseInt(submission.submitter.match(/Supp ([0-9]+)/)?.[1] || "0", 10);
+
+		if (!submissionMap.has(submitter)) {
+			const parentId = SubmissionModel.findParentSubmission(submitter, submission.submitted_timestamp);
+			submissionMap.set(submitter, parentId);
+		}
+
+		if (!submissionMap.has(submitter)) {
+			throw new Error(`Parent submission not found for ${submission.submitter}`);
+		}
+
+		console.log(`Creating submission link ${submission.submitter} #${order}.`);
+		SubmissionLinkModel.addLink(submission.id, submissionMap.get(submitter)!, order);
+	}
+}
+
+async function parsePdfs(options?: { limit?: number; reset?: boolean }) {
 	const submissions = SubmissionModel.selectUnparsedSubmissions();
 	console.log(`Found ${chalk.green(submissions.length)} unparsed submissions.`);
 
@@ -31,17 +50,31 @@ export default async function parseSubmissions() {
 
 	for (const submission of submissions) {
 		console.log(`Parsing submission ${submission.document_id}.`);
-		const pdfPath = path.join(PDF_DIR, `${submission.document_id}.pdf`);
 
-		if (!fs.existsSync(pdfPath)) {
-			throw new Error(`PDF file not found: ${pdfPath}`);
+		const childSubmissions = SubmissionModel.selectChildSubmissions(submission.id);
+		if (childSubmissions.length > 0) {
+			console.log(` Found ${chalk.green(childSubmissions.length)} child submissions.`);
 		}
 
-		const text = await extractTextFromPdf(pdfPath);
-		SubmissionModel.setSubmissionContent(submission.document_id, text);
+		const pdfPaths = [submission.document_id, ...childSubmissions.map((s) => s.document_id)].map((id) =>
+			path.join(PDF_DIR, `${id}.pdf`)
+		);
+
+		if (pdfPaths.map((p) => fs.existsSync(p)).includes(false)) {
+			console.log(`\tMissing .pdf file not found for ${submission.document_id}.`);
+		}
+
+		const pdfs = await Promise.all(pdfPaths.map((pdfPath) => parsePdf(pdfPath)));
+		const content = pdfs.map((pdf) => pdf.text).join("\n\n");
+		const size = pdfs.reduce((acc, pdf) => acc + pdf.size, 0);
+		const imageCount = pdfs.reduce((acc, pdf) => acc + pdf.images.length, 0);
+
+		PDFModel.setPdfDetails(submission.id, content, size, imageCount);
 
 		i++;
-		if (i >= 100) {
+
+		if (options?.limit && i >= options.limit) {
+			console.log(`Parsed limit of ${options.limit}.`);
 			break;
 		}
 	}

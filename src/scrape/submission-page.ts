@@ -6,9 +6,12 @@ import { Page } from "playwright";
  * @param documentId The document ID of the submission
  * @param submitterRef The submitter reference or name
  */
-export async function openSubmissionPage(page: Page, documentId: string, submitterRef: string): Promise<void> {
+export async function openSubmissionPage(page: Page, documentId: string, submitterRef?: string): Promise<void> {
 	try {
-		const url = `https://www.parliament.nz/en/pb/sc/submissions-and-advice/document/${documentId}/${submitterRef}`;
+		let url = `https://www.parliament.nz/en/pb/sc/submissions-and-advice/document/${documentId}`;
+		if (submitterRef) {
+			url += `/${submitterRef}`;
+		}
 
 		// Add timeout and waitUntil for more reliable navigation
 		await page.goto(url, {

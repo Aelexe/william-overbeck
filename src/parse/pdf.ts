@@ -14,21 +14,31 @@ export const IMAGE_OPERATORS = [
 	pdfjsLib.OPS.paintImageMaskXObjectGroup,
 	pdfjsLib.OPS.paintInlineImageXObject,
 	pdfjsLib.OPS.paintInlineImageXObjectGroup,
+	pdfjsLib.OPS.paintSolidColorImageMask,
 ];
 
-/**
- * Extract text content from a PDF file.
- * @param pdfPath Path to the PDF file
- * @returns Promise resolving to the extracted text
- */
-export async function extractTextFromPdf(pdfPath: string): Promise<string> {
+interface PDF {
+	text: string;
+	size: number;
+	images: (PDFImage | null)[];
+}
+interface PDFImage {
+	width: number;
+	height: number;
+	size: number;
+}
+
+export async function parsePdf(pdfPath: string): Promise<PDF> {
 	try {
-		// Load the PDF document
-		const rawData = await fs.readFile(pdfPath);
-		const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(rawData), verbosity: 0 });
+		const pdf = await fs.readFile(pdfPath);
+		// Get the file size.
+		const pdfStats = await fs.stat(pdfPath);
+		const pdfSize = pdfStats.size;
+		const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdf), verbosity: 0 });
 		const pdfDocument = await loadingTask.promise;
 
-		let fullText = "";
+		let text = "";
+		const images: (PDFImage | null)[] = [];
 
 		// Extract text from each page
 		for (let i = 1; i <= pdfDocument.numPages; i++) {
@@ -47,10 +57,17 @@ export async function extractTextFromPdf(pdfPath: string): Promise<string> {
 				})
 				.filter((op) => op !== null);
 
-			if (imageOperations.length > 0) {
-				console.log(pdfPath);
-				const imageObject = await page.objs.get(imageOperations[0].args[0]);
-				break;
+			for (const imageOperation of imageOperations) {
+				if (!page.objs.has(imageOperation.args[0])) {
+					images.push(null);
+					continue;
+				}
+				const imageObject = await page.objs.get(imageOperation.args[0]);
+				images.push({
+					width: imageObject.width,
+					height: imageObject.height,
+					size: imageObject.data.length,
+				});
 			}
 
 			const textContent = await page.getTextContent();
@@ -59,10 +76,18 @@ export async function extractTextFromPdf(pdfPath: string): Promise<string> {
 				.map((item) => (item.str !== "" ? item.str : "\n"))
 				.join("");
 
-			fullText += pageText + "\n";
+			text += pageText + "\n";
 		}
 
-		return fullText;
+		if (/^[^a-zA-Z]+$/.test(text)) {
+			text = "";
+		}
+
+		return {
+			text,
+			size: pdfSize,
+			images,
+		};
 	} catch (error) {
 		console.error("Error extracting text from PDF:", error);
 		throw error;

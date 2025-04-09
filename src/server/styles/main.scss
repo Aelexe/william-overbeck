@@ -1,0 +1,129 @@
+@use "sass:color";
+
+// Variables
+$dark-bg: #121212;
+$darker-bg: #0a0a0a;
+$text-color: #e0e0e0;
+$primary-color: #bb86fc;
+$success-color: #4caf50;
+$error-color: #f44336;
+$card-bg: #1e1e1e;
+
+// Global styles
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+body {
+	font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+	background-color: $dark-bg;
+	color: $text-color;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+}
+
+// App container
+.app-container {
+	display: flex;
+	flex-direction: column;
+	min-height: 100vh;
+	padding: 20px;
+}
+
+// Content container
+.content-container {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	max-width: 800px;
+	margin: 0 auto;
+	padding: 2rem;
+
+	h1 {
+		color: $primary-color;
+		margin-bottom: 2rem;
+		text-align: center;
+	}
+
+	.content {
+		width: 100%;
+		background-color: $card-bg;
+		border-radius: 8px;
+		padding: 1.5rem;
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+
+		p {
+			margin-bottom: 1rem;
+			line-height: 1.6;
+		}
+	}
+}
+
+// Action buttons
+.action-buttons {
+	display: flex;
+	justify-content: center;
+	margin-top: auto;
+	padding: 2rem 0;
+	gap: 2rem;
+
+	.action-button {
+		width: 80px;
+		height: 80px;
+		border-radius: 50%;
+		border: none;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 2rem;
+		cursor: pointer;
+		transition: all 0.3s ease;
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+
+		&:hover {
+			transform: scale(1.1);
+		}
+
+		&:active {
+			transform: scale(0.95);
+		}
+
+		&.approve {
+			background-color: $success-color;
+			color: white;
+
+			&:hover {
+				background-color: color.adjust($success-color, $lightness: -10%);
+			}
+		}
+
+		&.reject {
+			background-color: $error-color;
+			color: white;
+
+			&:hover {
+				background-color: color.adjust($error-color, $lightness: -10%);
+			}
+		}
+	}
+}
+
+// Responsive adjustments
+@media (max-width: 600px) {
+	.content-container {
+		padding: 1rem;
+	}
+
+	.action-buttons {
+		.action-button {
+			width: 60px;
+			height: 60px;
+			font-size: 1.5rem;
+		}
+	}
+}

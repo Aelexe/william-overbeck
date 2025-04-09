@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import { getDb } from "./db";
 
 interface Submission {
+	id: number;
 	document_id: string;
 	document_hash: string | null;
 	submitted_timestamp: DateTime;
@@ -11,6 +12,17 @@ interface Submission {
 }
 
 export default class SubmissionModel {
+	public static selectSubmissions(): Submission[] {
+		const database = getDb();
+		const statement = database.prepare(`
+				SELECT s.* FROM submission s
+				LEFT JOIN submission_link sl ON s.id = sl.child_submission_id
+				WHERE sl.id IS NULL
+			`);
+
+		return statement.all() as Submission[];
+	}
+
 	/**
 	 * Inserts a new submission into the database
 	 * @param documentId Unique identifier of the document
@@ -18,7 +30,7 @@ export default class SubmissionModel {
 	 * @param documentHash Hash of the document content
 	 * @returns The ID of the inserted submission
 	 */
-	static insertSubmission(
+	public static insertSubmission(
 		documentId: string,
 		submitter: string,
 		submittedTimestamp: DateTime,
@@ -39,7 +51,7 @@ export default class SubmissionModel {
 	 * @param documentId Unique identifier of the document to check
 	 * @returns True if the submission exists, false otherwise
 	 */
-	static submissionExists(documentId: string): boolean {
+	public static submissionExists(documentId: string): boolean {
 		const database = getDb();
 		const stmt = database.prepare(`
             SELECT EXISTS(
@@ -56,7 +68,7 @@ export default class SubmissionModel {
 	 * @param documentId Unique identifier of the document
 	 * @returns The document hash as a string, or null if not found
 	 */
-	static getDocumentHash(documentId: string): string | null {
+	public static getDocumentHash(documentId: string): string | null {
 		const database = getDb();
 		const stmt = database.prepare(`
             SELECT document_hash
@@ -67,7 +79,7 @@ export default class SubmissionModel {
 		return stmt.pluck().get(documentId) as string | null;
 	}
 
-	static updateDocumentHash(documentId: string, documentHash: string): void {
+	public static updateDocumentHash(documentId: string, documentHash: string): void {
 		const database = getDb();
 		const stmt = database.prepare(`
 			UPDATE submission
@@ -78,7 +90,7 @@ export default class SubmissionModel {
 		stmt.run(documentHash, documentId);
 	}
 
-	static updateSubmittedTimestamp(documentId: string, submittedTimestamp: DateTime): void {
+	public static updateSubmittedTimestamp(documentId: string, submittedTimestamp: DateTime): void {
 		const database = getDb();
 		const stmt = database.prepare(`
 			UPDATE submission
@@ -93,7 +105,7 @@ export default class SubmissionModel {
 	 * @param documentId Unique identifier of the document to check
 	 * @returns True if the submission is downloaded, false otherwise
 	 */
-	static isSubmissionDownloaded(documentId: string): boolean {
+	public static isSubmissionDownloaded(documentId: string): boolean {
 		const database = getDb();
 		const stmt = database.prepare(`
             SELECT EXISTS(
@@ -103,6 +115,17 @@ export default class SubmissionModel {
         `);
 
 		return stmt.pluck().get(documentId) === 1;
+	}
+
+	public static selectUndownloadedSubmissions(): Submission[] {
+		const database = getDb();
+		const stmt = database.prepare(`
+			SELECT *
+			FROM submission
+			WHERE NOT is_downloaded
+		`);
+
+		return stmt.all() as Submission[];
 	}
 
 	/**
@@ -120,30 +143,69 @@ export default class SubmissionModel {
 		stmt.run(documentId);
 	}
 
+	public static selectChildSubmissions(parentId: number): Submission[] {
+		const database = getDb();
+		const stmt = database.prepare(`
+			SELECT s.*
+			FROM submission s
+			INNER JOIN submission_link sl ON s.id = sl.child_submission_id
+			WHERE sl.parent_submission_id = ?
+			ORDER BY sl.link_order ASC
+		`);
+		return stmt.all(parentId) as Submission[];
+	}
+
+	public static findUnlinkedSupplementarySubmissions(): {
+		id: number;
+		submitter: string;
+		submitted_timestamp: DateTime;
+	}[] {
+		const database = getDb();
+		const stmt = database.prepare(`
+			SELECT s.id, s.submitter, s.submitted_timestamp
+			FROM submission s
+			LEFT JOIN submission_link sl ON s.id = sl.child_submission_id
+			WHERE sl.id IS NULL
+			AND submitter REGEXP '.*Supp [0-9]$';
+		`);
+
+		return (stmt.all() as { id: number; submitter: string; submitted_timestamp: string }[]).map((row) => ({
+			...row,
+			submitted_timestamp: DateTime.fromISO(row.submitted_timestamp),
+		}));
+	}
+
+	public static findParentSubmission(submitter: string, timestamp: DateTime): number {
+		const database = getDb();
+		const stmt = database.prepare(`
+			SELECT id
+			FROM submission
+			WHERE submitter = ? AND submitted_timestamp = ?
+		`);
+
+		return stmt.pluck().get(submitter, timestamp.toISO()) as number;
+	}
+
 	public static selectUnparsedSubmissions(): Submission[] {
 		const database = getDb();
 		const stmt = database.prepare(`
-			SELECT *
-			FROM submission
-			WHERE content IS NULL AND is_downloaded = TRUE
+			SELECT s.*
+			FROM submission s
+			LEFT JOIN submission_link sl ON s.id = sl.child_submission_id
+      		LEFT JOIN pdf ON pdf.submission_id = s.id
+			WHERE s.is_downloaded AND pdf.content IS NULL AND sl.id IS NULL
 		`);
 
 		return stmt.all() as Submission[];
 	}
 
-	/**
-	 * Sets the content for a submission record
-	 * @param documentId Document identifier of the submission to update
-	 * @param content The content to be stored
-	 */
-	static setSubmissionContent(documentId: string, content: string): void {
+	public static clearAllSubmissionContent(): void {
 		const database = getDb();
 		const stmt = database.prepare(`
-            UPDATE submission
-            SET content = ?
-            WHERE document_id = ?
-        `);
+			UPDATE submission
+			SET content = NULL
+		`);
 
-		stmt.run(content, documentId);
+		stmt.run();
 	}
 }

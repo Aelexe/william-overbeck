@@ -46,6 +46,10 @@ export function initialiseDatabase(config: DbConfig = { filename: "db.sqlite" })
 		// Enable foreign keys.
 		db.pragma("foreign_keys = ON");
 
+		db.function("regexp", (regex, text) => {
+			return new RegExp(regex as string).test(text as string) ? 1 : 0;
+		});
+
 		runMigrations(path.join(process.cwd(), "migrations"));
 
 		console.log("Database initialised.");
