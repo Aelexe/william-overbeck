@@ -1,14 +1,17 @@
 import express from "express";
-import sassMiddleware from "node-sass-middleware";
+import fs from "fs";
 import path from "path";
 import webpack from "webpack";
 import webpackDevMiddleware from "webpack-dev-middleware";
 import webpackHotMiddleware from "webpack-hot-middleware";
+import NameModel from "../model/name-model";
+import SubmissionModel from "../model/submission-model";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-export function startServer() {// Webpack configuration
+export function startServer() {
+	// Webpack configuration
 	const isDevelopment = process.env.NODE_ENV !== "production";
 	const webpackConfig: webpack.Configuration = {
 		mode: isDevelopment ? "development" : "production",
@@ -65,31 +68,54 @@ export function startServer() {// Webpack configuration
 	app.use("/scripts", express.static(path.join(__dirname, "../scripts")));
 	app.use("/components", express.static(path.join(__dirname, "../components")));
 
+	// API Routes
+	app.get("/api/submissions/group-analysis", (req, res) => {
+		try {
+			const submissions = SubmissionModel.selectSubmissionsForGroupAnalysis();
+			res.json(submissions);
+		} catch (error) {
+			console.error("Error fetching submissions for group analysis:", error);
+			res.status(500).end();
+		}
+	});
+
+	// Update submission group status
+	app.put("/api/submissions/:documentId/group-status", express.json(), (req, res) => {
+		try {
+			const { documentId } = req.params;
+			const { isGrouped } = req.body;
+
+			if (typeof isGrouped !== "boolean") {
+				return res.status(400).end();
+			}
+
+			SubmissionModel.updateGroupStatus(documentId, isGrouped);
+			res.status(204).end();
+		} catch (error) {
+			console.error("Error updating submission group status:", error);
+			res.status(500).end();
+		}
+	});
+
+	app.post("/api/names/:name", express.json(), (req, res) => {
+		try {
+			const { name } = req.params;
+			NameModel.createName(name);
+			res.status(204).end();
+		} catch (error) {
+			console.error("Error creating names:", error);
+			res.status(500).end();
+		}
+	});
+
 	// Root route
 	app.get("/", (req, res) => {
-		const html = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Submission Scraper</title>
-      <link rel="stylesheet" href="/styles/main.css">
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    </head>
-    <body>
-      <div id="root"></div>
-      <script src="/js/bundle.js"></script>
-    </body>
-    </html>
-  `;
-
+		const html = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf8");
 		res.send(html);
 	});
 
 	// Start the server
 	app.listen(PORT, () => {
 		console.log(`Server is running on http://localhost:${PORT}`);
-		require("child_process").exec(`start http://localhost:${PORT}`);
 	});
 }

@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { Browser } from "playwright";
 import PageRecordModel from "../model/page-record-model";
-import SubmissionModel from "../model/submission";
+import SubmissionModel from "../model/submission-model";
 import getProgressBar from "../utils/progress-bar";
 import { getBrowser, getPage, returnPage } from "./browser";
 import PageScraper from "./page-scraper";

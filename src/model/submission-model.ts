@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 import { getDb } from "./db";
 
-interface Submission {
+export interface Submission {
 	id: number;
 	document_id: string;
 	document_hash: string | null;
@@ -21,6 +21,19 @@ export default class SubmissionModel {
 			`);
 
 		return statement.all() as Submission[];
+	}
+
+	public static selectSubmissionsForGroupAnalysis(): Submission[] {
+		const database = getDb();
+		const stmt = database.prepare(`
+			SELECT s.*
+			FROM submission s
+			LEFT JOIN submission_link sl ON s.id = sl.child_submission_id
+			WHERE sl.id IS NULL
+			AND s.is_group IS NULL
+		`);
+
+		return stmt.all() as Submission[];
 	}
 
 	/**
@@ -207,5 +220,21 @@ export default class SubmissionModel {
 		`);
 
 		stmt.run();
+	}
+
+	/**
+	 * Updates the group_analyzed status of a submission
+	 * @param documentId Unique identifier of the document
+	 * @param isGrouped Boolean indicating whether the submission has been analyzed in a group
+	 */
+	public static updateGroupStatus(documentId: string, isGrouped: boolean): void {
+		const database = getDb();
+		const stmt = database.prepare(`
+			UPDATE submission
+			SET is_group = ?
+			WHERE document_id = ?
+		`);
+
+		stmt.run(isGrouped ? 1 : 0, documentId);
 	}
 }

@@ -2,7 +2,7 @@ import chalk from "chalk";
 import path from "path";
 import { Page } from "playwright";
 import PageRecordModel from "../model/page-record-model";
-import SubmissionModel from "../model/submission";
+import SubmissionModel from "../model/submission-model";
 import { PDF_DIR } from "../paths";
 import { returnPage } from "./browser";
 import { downloadPdf } from "./pdf-page";

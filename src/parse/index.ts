@@ -2,8 +2,8 @@ import chalk from "chalk";
 import fs from "fs-extra";
 import path from "path";
 import PDFModel from "../model/pdf-model";
-import SubmissionModel from "../model/submission";
 import { SubmissionLinkModel } from "../model/submission-link-model";
+import SubmissionModel from "../model/submission-model";
 import { PDF_DIR } from "../paths";
 import { parsePdf } from "./pdf";
 
