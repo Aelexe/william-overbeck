@@ -30,11 +30,14 @@ function linkSupplementarySubmissions() {
 
 		if (!submissionMap.has(submitter)) {
 			const parentId = SubmissionModel.findParentSubmission(submitter, submission.submitted_timestamp);
-			submissionMap.set(submitter, parentId);
+			if (parentId !== null) {
+				submissionMap.set(submitter, parentId);
+			}
 		}
 
 		if (!submissionMap.has(submitter)) {
-			throw new Error(`Parent submission not found for ${submission.submitter}`);
+			console.warn(`Parent submission not found for ${submission.submitter}`);
+			continue;
 		}
 
 		console.log(`Creating submission link ${submission.submitter} #${order}.`);

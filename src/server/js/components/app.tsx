@@ -2,13 +2,15 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Submission } from "../../../model/submission-model";
 import NamesApi from "../../api/names-api";
 import SubmissionsApi from "../../api/submissions-api";
-import ActionButtons from "./action-buttons";
+import Button from "./button";
+import Checkbox from "./checkbox";
 
-export const App: React.FC = () => {
+export function App() {
 	const [submissions, setSubmissions] = useState<Submission[]>([]);
 	const [submissionIndex, setSubmissionIndex] = useState<number>(0);
 	const currentSubmission = useMemo(() => submissions[submissionIndex], [submissions, submissionIndex]);
 	const [isAnalysing, setIsAnalysing] = useState<boolean>(false);
+	const [isNameSaveDisabled, setNameSaveDisabled] = useState<boolean>(false);
 
 	const loadSubmissions = useCallback(async () => {
 		try {
@@ -32,17 +34,29 @@ export const App: React.FC = () => {
 
 	const flagSubmission = useCallback(
 		async (isGrouped: boolean) => {
+			// TODO: Disabling buttons and stuff.
 			await SubmissionsApi.setSubmissionGroupStatus(currentSubmission.document_id, isGrouped);
 			const names = currentSubmission.submitter
 				.split(" ")
 				.map((name) => name.trim().toLocaleLowerCase())
 				.filter((name) => name.length > 0);
-			for (const name of names) {
-				await NamesApi.createName(name);
+
+			if (!isGrouped && !isNameSaveDisabled) {
+				await NamesApi.createNames(names);
+				await SubmissionsApi.setNames(currentSubmission.document_id, names);
 			}
+
+			// Reload submissions to account for any automatic flags.
+			const reloadSubmissions = await SubmissionsApi.getSubmissionsForGroupAnalysis();
+
+			if (reloadSubmissions.length < submissions.length - 1) {
+				// Splice the new list into the current index of the current list.
+				setSubmissions([...submissions.splice(0, submissionIndex + 1), ...reloadSubmissions]);
+			}
+
 			setSubmissionIndex((prevIndex) => prevIndex + 1);
 		},
-		[currentSubmission]
+		[currentSubmission, isNameSaveDisabled, submissions]
 	);
 
 	return (
@@ -77,17 +91,39 @@ export const App: React.FC = () => {
 					)}
 				</div>
 			</div>
-			<ActionButtons
-				disabled={!isAnalysing}
-				canUndo={submissionIndex > 0}
-				onApprove={() => flagSubmission(false)}
-				onReject={() => flagSubmission(true)}
-				onUndo={() => {
-					if (submissionIndex > 0) {
-						setSubmissionIndex(submissionIndex - 1);
-					}
-				}}
-			/>
+			<div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+				<Checkbox label="Don't save name" checked={isNameSaveDisabled} onChange={setNameSaveDisabled} hotkey=" " />
+			</div>
+			<div className="action-buttons">
+				<Button
+					classes="action-button reject"
+					enabled={isAnalysing}
+					hotkey="ArrowLeft"
+					onClick={() => flagSubmission(true)}
+				>
+					<i className="fas fa-times"></i>
+				</Button>
+				<Button
+					classes="action-button backwards"
+					enabled={isAnalysing && submissionIndex > 0}
+					hotkey="ArrowUp"
+					onClick={() => {
+						if (submissionIndex > 0) {
+							setSubmissionIndex(submissionIndex - 1);
+						}
+					}}
+				>
+					<i className="fas fa-arrow-up"></i>
+				</Button>
+				<Button
+					classes="action-button approve"
+					enabled={isAnalysing}
+					hotkey="ArrowRight"
+					onClick={() => flagSubmission(false)}
+				>
+					<i className="fas fa-check"></i>
+				</Button>
+			</div>
 		</div>
 	);
-};
+}

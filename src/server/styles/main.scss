@@ -74,6 +74,79 @@ body {
 	}
 }
 
+// Checkbox styles
+.checkbox-container {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	margin: 0.5rem 0;
+	user-select: none;
+
+	input[type="checkbox"] {
+		position: absolute;
+		opacity: 0;
+		cursor: pointer;
+		height: 0;
+		width: 0;
+
+		& + span.checkbox-label {
+			margin-left: 30px;
+			position: relative;
+
+			&:before {
+				content: "";
+				position: absolute;
+				left: -34px;
+				top: 50%;
+				transform: translateY(-50%);
+				width: 20px;
+				height: 20px;
+				background-color: $card-bg;
+				border: 2px solid $primary-color;
+				border-radius: 4px;
+				transition: all 0.2s ease;
+			}
+
+			&:after {
+				content: "";
+				position: absolute;
+				left: -26px;
+				top: 50%;
+				transform: translateY(-65%) rotate(45deg);
+				width: 5px;
+				height: 10px;
+				border: solid white;
+				border-width: 0 2px 2px 0;
+				opacity: 0;
+				transition: opacity 0.2s ease;
+			}
+		}
+
+		&:checked + span.checkbox-label:before {
+			background-color: $primary-color;
+		}
+
+		&:checked + span.checkbox-label:after {
+			opacity: 1;
+		}
+
+		&:disabled + span.checkbox-label {
+			opacity: 0.5;
+			cursor: not-allowed;
+
+			&:before {
+				border-color: color.adjust($primary-color, $saturation: -50%, $lightness: -20%);
+				background-color: color.adjust($card-bg, $lightness: -5%);
+			}
+		}
+	}
+
+	&:hover input[type="checkbox"]:not(:disabled) + span.checkbox-label:before {
+		border-color: color.adjust($primary-color, $lightness: 10%);
+		box-shadow: 0 0 5px rgba($primary-color, 0.5);
+	}
+}
+
 // Action buttons
 .action-buttons {
 	display: flex;

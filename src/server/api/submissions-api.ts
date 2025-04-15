@@ -10,4 +10,8 @@ export default class SubmissionsApi {
 	public static async setSubmissionGroupStatus(documentId: string, isGrouped: boolean): Promise<void> {
 		await axios.put(`/api/submissions/${documentId}/group-status`, { isGrouped });
 	}
+
+	public static async setNames(documentId: string, names: string[]): Promise<void> {
+		await axios.put(`/api/submissions/${documentId}/names`, { names });
+	}
 }

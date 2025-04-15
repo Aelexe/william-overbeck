@@ -188,7 +188,7 @@ export default class SubmissionModel {
 		}));
 	}
 
-	public static findParentSubmission(submitter: string, timestamp: DateTime): number {
+	public static findParentSubmission(submitter: string, timestamp: DateTime): number | null {
 		const database = getDb();
 		const stmt = database.prepare(`
 			SELECT id
@@ -196,7 +196,9 @@ export default class SubmissionModel {
 			WHERE submitter = ? AND submitted_timestamp = ?
 		`);
 
-		return stmt.pluck().get(submitter, timestamp.toISO()) as number;
+		const parentId = stmt.pluck().get(submitter, timestamp.toISO()) ?? null;
+
+		return parentId as number | null;
 	}
 
 	public static selectUnparsedSubmissions(): Submission[] {

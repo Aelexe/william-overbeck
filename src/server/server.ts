@@ -1,3 +1,4 @@
+import chalk from "chalk";
 import express from "express";
 import fs from "fs";
 import path from "path";
@@ -6,9 +7,10 @@ import webpackDevMiddleware from "webpack-dev-middleware";
 import webpackHotMiddleware from "webpack-hot-middleware";
 import NameModel from "../model/name-model";
 import SubmissionModel from "../model/submission-model";
+import SubmissionNameModel from "../model/submission-name-model";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 80;
 
 export function startServer() {
 	// Webpack configuration
@@ -33,13 +35,13 @@ export function startServer() {
 				{
 					test: /\.scss$/,
 					use: [
-						"style-loader", // Injects CSS into the DOM
+						"style-loader",
 						{
-							loader: "css-loader", // Interprets @import and url() and resolves them
+							loader: "css-loader",
 							options: { sourceMap: isDevelopment },
 						},
 						{
-							loader: "sass-loader", // Compiles Sass to CSS
+							loader: "sass-loader",
 							options: { sourceMap: isDevelopment },
 						},
 					],
@@ -79,7 +81,6 @@ export function startServer() {
 		}
 	});
 
-	// Update submission group status
 	app.put("/api/submissions/:documentId/group-status", express.json(), (req, res) => {
 		try {
 			const { documentId } = req.params;
@@ -97,10 +98,56 @@ export function startServer() {
 		}
 	});
 
-	app.post("/api/names/:name", express.json(), (req, res) => {
+	app.put("/api/submissions/:documentId/names", express.json(), (req, res) => {
 		try {
-			const { name } = req.params;
-			NameModel.createName(name);
+			const { documentId } = req.params;
+			const { names } = req.body;
+
+			if (!Array.isArray(names)) {
+				return res.status(400).end();
+			}
+
+			SubmissionNameModel.insert(documentId, names);
+			res.status(204).end();
+		} catch (error) {
+			console.error("Error updating submission group status:", error);
+			res.status(500).end();
+		}
+	});
+
+	app.post("/api/names", express.json(), (req, res) => {
+		try {
+			const { names } = req.body;
+
+			if (!Array.isArray(names) || names.length === 0) {
+				return res.status(400).end();
+			}
+
+			if (names.some((name) => typeof name !== "string")) {
+				return res.status(400).end();
+			}
+
+			for (const name of names) {
+				NameModel.createName(name);
+			}
+
+			const namesList = NameModel.selectNames();
+			const submissions = SubmissionModel.selectSubmissionsForGroupAnalysis();
+
+			submissions.forEach((submission) => {
+				const submissionNames = submission.submitter
+					.split(" ")
+					.map((name) => name.trim().toLocaleLowerCase())
+					.filter((name) => name.length > 0);
+				if (submissionNames.every((name) => namesList.includes(name))) {
+					console.log(
+						`Submission ${chalk.blue(submission.document_id)} - ${chalk.blue(submission.submitter)} is individual.`
+					);
+					SubmissionModel.updateGroupStatus(submission.document_id, false);
+					SubmissionNameModel.insert(submission.document_id, submissionNames);
+				}
+			});
+
 			res.status(204).end();
 		} catch (error) {
 			console.error("Error creating names:", error);
